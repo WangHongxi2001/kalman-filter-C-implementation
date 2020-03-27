@@ -33,6 +33,12 @@
 #ifdef ARM_MATH_CM4
 #include "arm_math.h"
 
+#ifdef _CMSIS_OS_H
+#define user_malloc pvPortMalloc
+#else
+#define user_malloc malloc
+#endif
+
 #define mat arm_matrix_instance_f32
 #define Matrix_Init arm_mat_init_f32
 #define Matrix_Add arm_mat_add_f32
@@ -59,6 +65,7 @@ typedef struct
     mat Q;         //Ä£ĞÍÔëÉù¾ØÕó
     mat R;         //´«¸ĞÆ÷ÔëÉù¾ØÕó
     mat K;         //¿¨¶ûÂüÔöÒæ
+    mat temp_matrix, temp_matrix1, temp_vector, temp_vector1;
 
     float *xhat_data, *xhatminus_data;
     float *u_data;
@@ -70,6 +77,7 @@ typedef struct
     float *Q_data;
     float *R_data;
     float *K_data;
+    float *temp_matrix_data, *temp_matrix_data1, *temp_vector_data, *temp_vector_data1;
 } kalman_filter_t;
 
 void Kalman_Filter_Init(kalman_filter_t *KF, uint8_t xhat_size);
