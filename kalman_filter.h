@@ -56,13 +56,14 @@ typedef struct
     uint8_t u_size;
     uint8_t z_size;
     uint8_t *Measurement_Reference; //how measurement relates to the state vector
-    float *Measurement_Degree;      //How directly do sensors measure states
+    float *Measurement_Degree;      //how much directly do sensors measure states
     float *Mat_R_Diagonal_Elements; //variance for each measurement
 
     mat xhat;      //x(k|k)
     mat xhatminus; //x(k|k-1)
     mat u;         //control vector u
     mat z;         //measurement vector z
+    mat z_buf;     //measurement vector z for update
     mat P;         //covariance matrix P(k|k)
     mat Pminus;    //covariance matrix P(k|k-1)
     mat A, AT;     //state transition matrix A AT
@@ -76,6 +77,7 @@ typedef struct
     float *xhat_data, *xhatminus_data;
     float *u_data;
     float *z_data;
+    float *z_buf_data;
     float *P_data, *Pminus_data;
     float *A_data, *AT_data;
     float *B_data;
@@ -87,7 +89,7 @@ typedef struct
 } kalman_filter_t;
 
 void Kalman_Filter_Init(kalman_filter_t *KF, uint8_t xhat_size, uint8_t u_size, uint8_t z_size);
-float *Kalman_Filter_Calculate(kalman_filter_t *KF);
+float *Kalman_Filter_Update(kalman_filter_t *KF);
 
 #endif //ARM_MATH_CM4
 
