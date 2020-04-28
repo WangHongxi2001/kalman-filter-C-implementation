@@ -1,121 +1,219 @@
 /**
   ******************************************************************************
-  * @file    kalman_filter.h
+  * @file    kalman_filter.c
   * @author  Hongxi Wong
-  * @version V1.0.2
-  * @date    2020/3/1
+  * @version V1.0.3
+  * @date    2020/4/27
   * @brief   
   ******************************************************************************
   * @attention 
-  *
+  * This kalman filter tool can dynamically adjust dimension of matrix H R and K 
+  * according to measurement validity when the measuring frequency of sensors are
+  * not the same.
+  * Requires that update z_data and u_data in sensor callback function. 
+  * z_data must be 0 if the current measurement is invalid. 
+  * Otherwise the result could be hysteretic.
+  * 
+  * @example:
+  * kalman_filter_t Height_KF;
+  * //xhat = 
+  *   |   height   |
+  *   |  velocity  |
+  *   |acceleration|
+  * void INS_Task_Init(void)
+  * {
+  *     static float P_Init[9] =
+  *     {
+  *         10, 0, 0, 
+  *         0, 30, 0, 
+  *         0, 0, 10, 
+  *     };
+  *     static float A_Init[9] =
+  *     {
+  *         1, dt, 0.5*dt*dt, 
+  *         0, 1, dt, 
+  *         0, 0, 1, 
+  *     };
+  *     static float Q_Init[9] =
+  *     {
+  *         0.25*dt*dt*dt*dt, 0.5*dt*dt*dt, 0.5*dt*dt, 
+  *         0.5*dt*dt*dt,        dt*dt,         dt, 
+  *         0.5*dt*dt,              dt,         1, 
+  *     };
+  * 
+  *     static uint8_t measurement_reference[3] = {1, 1, 3}    //baro_height  GPS_height  IMU_acc
+  *     static float measurement_degree[3] = {0.8, 1, 1}      //barometer measures height indirectly
+  *     //according to measurement_reference and measurement_degree
+  *     //matrix H should be like this:
+  *       |0.8   0   0|
+  *       |  1   0   0|
+  *       |  0   0   1|
+  * 
+  *     static float mat_R_diagonal_elements = {30, 25, 35}
+  *     //according to mat_R_diagonal_elements 
+  *     //matrix R should be like this:
+  *       |30   0   0|
+  *       | 0  25   0|
+  *       | 0   0  35|
+  * 
+  *     Kalman_Filter_Init(&Height_KF, 3, 0, 3);
+  *     memcpy(Height_KF.P_data, P_Init, sizeof(P_Init));
+  *     memcpy(Height_KF.A_data, A_Init, sizeof(A_Init));
+  *     memcpy(Height_KF.Q_data, Q_Init, sizeof(Q_Init));
+  *     memcpy(Height_KF.Measurement_Reference, measurement_reference, sizeof(measurement_reference));
+  *     memcpy(Height_KF.Measurement_Degree, measurement_degree, sizeof(measurement_degree));
+  *     memcpy(Height_KF.Mat_R_Diagonal_Elements, mat_R_diagonal_elements, sizeof(mat_R_diagonal_elements));
+  * }
+  * 
+  * void INS_Task(void const *pvParameters)
+  * {
+  *     //infinite loop
+  *     Kalman_Filter_Calculate(&Height_KF);
+  *     vTaskDelay(ts);
+  * }
+  * 
+  * void Barometer_Read_Over(void)
+  * {
+  *     ......
+  *     INS_KF.z_data[0] = baro_height;
+  * }
+  * void GPS_Read_Over(void)
+  * {
+  *     ......
+  *     INS_KF.z_data[1] = GPS_height;
+  * }
+  * void Acc_Data_Process(void)
+  * {
+  *     ......
+  *     INS_KF.z_data[2] = acc.z;
+  * }
   ******************************************************************************
   */
+
 #include "kalman_filter.h"
 #ifdef ARM_MATH_CM4
 #include "arm_math.h"
 
-void Kalman_Filter_Init(kalman_filter_t *KF, uint8_t xhat_size)
+static uint8_t H_K_R_Adjustment(kalman_filter_t *KF);
+
+void Kalman_Filter_Init(kalman_filter_t *KF, uint8_t xhat_size, uint8_t u_size, uint8_t z_size)
 {
     KF->xhat_size = xhat_size;
 
-    //滤波数据分配空间
-    KF->Raw_Value = (float *)user_malloc(sizeof(float) * xhat_size);
-    memset(KF->Raw_Value, 0, xhat_size);
-    KF->Filtered_Value = (float *)user_malloc(sizeof(float) * xhat_size);
-    memset(KF->Filtered_Value, 0, xhat_size);
+    //allocate space for measurement flags
+    KF->Measurement_Reference = (uint8_t *)user_malloc(sizeof(uint8_t) * z_size);
+    memset(KF->Measurement_Reference, 0, sizeof(uint8_t) * z_size);
+    KF->Measurement_Degree = (float *)user_malloc(sizeof(float) * z_size);
+    memset(KF->Measurement_Degree, 0, sizeof(float) * z_size);
+    KF->Mat_R_Diagonal_Elements = (float *)user_malloc(sizeof(float) * z_size);
+    memset(KF->Mat_R_Diagonal_Elements, 0, sizeof(float) * z_size);
 
-    //状态向量初始化
+    //allocate space for filter data
+    KF->Raw_Value = (float *)user_malloc(sizeof(float) * xhat_size);
+    memset(KF->Raw_Value, 0, sizeof(float) * xhat_size);
+    KF->Filtered_Value = (float *)user_malloc(sizeof(float) * xhat_size);
+    memset(KF->Filtered_Value, 0, sizeof(float) * xhat_size);
+
+    //create xhat x(k|k)
     KF->xhat_data = (float *)user_malloc(sizeof(float) * xhat_size);
-    memset(KF->xhat_data, 0, xhat_size);
+    memset(KF->xhat_data, 0, sizeof(float) * xhat_size);
     Matrix_Init(&KF->xhat, KF->xhat_size, 1, (float *)KF->xhat_data);
 
-    //状态先验估计向量初始化
+    //create xhatminus x(k|k-1)
     KF->xhatminus_data = (float *)user_malloc(sizeof(float) * xhat_size);
-    memset(KF->xhatminus_data, 0, xhat_size);
+    memset(KF->xhatminus_data, 0, sizeof(float) * xhat_size);
     Matrix_Init(&KF->xhatminus, KF->xhat_size, 1, (float *)KF->xhatminus_data);
 
-    //控制向量初始化
-    KF->u_data = (float *)user_malloc(sizeof(float) * xhat_size);
-    memset(KF->u_data, 0, xhat_size);
-    Matrix_Init(&KF->u, KF->xhat_size, 1, (float *)KF->u_data);
+    if (u_size != 0)
+    {
+        //create control vector u
+        KF->u_data = (float *)user_malloc(sizeof(float) * u_size);
+        memset(KF->u_data, 0, sizeof(float) * u_size);
+        Matrix_Init(&KF->u, KF->u_size, 1, (float *)KF->u_data);
+    }
 
-    //测量数据向量初始化
-    KF->z_data = (float *)user_malloc(sizeof(float) * xhat_size);
-    memset(KF->z_data, 0, xhat_size);
-    Matrix_Init(&KF->z, KF->xhat_size, 1, (float *)KF->z_data);
+    //create measurement vector z
+    KF->z_data = (float *)user_malloc(sizeof(float) * z_size);
+    memset(KF->z_data, 0, sizeof(float) * z_size);
+    Matrix_Init(&KF->z, KF->z_size, 1, (float *)KF->z_data);
 
-    //协方差矩阵初始化
+    //create covariance matrix P(k|k)
     KF->P_data = (float *)user_malloc(sizeof(float) * xhat_size * xhat_size);
-    memset(KF->P_data, 0, xhat_size * xhat_size);
+    memset(KF->P_data, 0, sizeof(float) * xhat_size * xhat_size);
     Matrix_Init(&KF->P, KF->xhat_size, KF->xhat_size, (float *)KF->P_data);
 
-    //先验估计协方差矩阵初始化
+    //create covariance matrix P(k|k-1)
     KF->Pminus_data = (float *)user_malloc(sizeof(float) * xhat_size * xhat_size);
-    memset(KF->Pminus_data, 0, xhat_size * xhat_size);
+    memset(KF->Pminus_data, 0, sizeof(float) * xhat_size * xhat_size);
     Matrix_Init(&KF->Pminus, KF->xhat_size, KF->xhat_size, (float *)KF->Pminus_data);
 
-    //状态转移矩阵初始化
+    //create state transition matrix A AT
     KF->A_data = (float *)user_malloc(sizeof(float) * xhat_size * xhat_size);
     KF->AT_data = (float *)user_malloc(sizeof(float) * xhat_size * xhat_size);
-    memset(KF->A_data, 0, xhat_size * xhat_size);
-    memset(KF->AT_data, 0, xhat_size * xhat_size);
+    memset(KF->A_data, 0, sizeof(float) * xhat_size * xhat_size);
+    memset(KF->AT_data, 0, sizeof(float) * xhat_size * xhat_size);
     Matrix_Init(&KF->A, KF->xhat_size, KF->xhat_size, (float *)KF->A_data);
     Matrix_Init(&KF->AT, KF->xhat_size, KF->xhat_size, (float *)KF->AT_data);
-    //Matrix_Transpose(&KF->A, &KF->AT);
 
-    //控制矩阵初始化
-    KF->B_data = (float *)user_malloc(sizeof(float) * xhat_size * xhat_size);
-    memset(KF->B_data, 0, xhat_size * xhat_size);
-    Matrix_Init(&KF->B, KF->xhat_size, KF->xhat_size, (float *)KF->B_data);
+    if (u_size != 0)
+    {
+        //create control matrix B
+        KF->B_data = (float *)user_malloc(sizeof(float) * xhat_size * u_size);
+        memset(KF->B_data, 0, sizeof(float) * xhat_size * u_size);
+        Matrix_Init(&KF->B, KF->xhat_size, KF->u_size, (float *)KF->B_data);
+    }
 
-    //观测矩阵初始化
-    KF->H_data = (float *)user_malloc(sizeof(float) * xhat_size * xhat_size);
-    KF->HT_data = (float *)user_malloc(sizeof(float) * xhat_size * xhat_size);
-    memset(KF->H_data, 0, xhat_size * xhat_size);
-    memset(KF->HT_data, 0, xhat_size * xhat_size);
-    Matrix_Init(&KF->H, KF->xhat_size, KF->xhat_size, (float *)KF->H_data);
-    Matrix_Init(&KF->HT, KF->xhat_size, KF->xhat_size, (float *)KF->HT_data);
+    //create measurement matrix H
+    KF->H_data = (float *)user_malloc(sizeof(float) * z_size * xhat_size);
+    KF->HT_data = (float *)user_malloc(sizeof(float) * xhat_size * z_size);
+    memset(KF->H_data, 0, sizeof(float) * z_size * xhat_size);
+    memset(KF->HT_data, 0, sizeof(float) * xhat_size * z_size);
+    Matrix_Init(&KF->H, KF->z_size, KF->xhat_size, (float *)KF->H_data);
+    Matrix_Init(&KF->HT, KF->xhat_size, KF->z_size, (float *)KF->HT_data);
     //Matrix_Transpose(&KF->H, &KF->HT);
 
-    //模型噪声矩阵初始化
+    //create process noise covariance matrix Q
     KF->Q_data = (float *)user_malloc(sizeof(float) * xhat_size * xhat_size);
-    memset(KF->Q_data, 0, xhat_size * xhat_size);
+    memset(KF->Q_data, 0, sizeof(float) * xhat_size * xhat_size);
     Matrix_Init(&KF->Q, KF->xhat_size, KF->xhat_size, (float *)KF->Q_data);
 
-    //测量噪声矩阵初始化
+    //create measurement noise covariance matrix R
     KF->R_data = (float *)user_malloc(sizeof(float) * xhat_size * xhat_size);
-    memset(KF->R_data, 0, xhat_size * xhat_size);
+    memset(KF->R_data, 0, sizeof(float) * xhat_size * xhat_size);
     Matrix_Init(&KF->R, KF->xhat_size, KF->xhat_size, (float *)KF->R_data);
 
-    //卡尔曼增益矩阵初始化
-    KF->K_data = (float *)user_malloc(sizeof(float) * xhat_size * xhat_size);
-    memset(KF->K_data, 0, xhat_size * xhat_size);
-    Matrix_Init(&KF->K, KF->xhat_size, KF->xhat_size, (float *)KF->K_data);
+    //creat kalman gain K
+    KF->K_data = (float *)user_malloc(sizeof(float) * xhat_size * z_size);
+    memset(KF->K_data, 0, sizeof(float) * xhat_size * z_size);
+    Matrix_Init(&KF->K, KF->xhat_size, KF->z_size, (float *)KF->K_data);
 
     KF->temp_matrix_data = (float *)user_malloc(sizeof(float) * KF->xhat_size * KF->xhat_size);
     KF->temp_matrix_data1 = (float *)user_malloc(sizeof(float) * KF->xhat_size * KF->xhat_size);
     KF->temp_vector_data = (float *)user_malloc(sizeof(float) * KF->xhat_size);
     KF->temp_vector_data1 = (float *)user_malloc(sizeof(float) * KF->xhat_size);
-
     Matrix_Init(&KF->temp_matrix, KF->xhat_size, KF->xhat_size, (float *)KF->temp_matrix_data);
     Matrix_Init(&KF->temp_matrix1, KF->xhat_size, KF->xhat_size, (float *)KF->temp_matrix_data);
     Matrix_Init(&KF->temp_vector, KF->xhat_size, 1, (float *)KF->temp_vector_data);
     Matrix_Init(&KF->temp_vector1, KF->xhat_size, 1, (float *)KF->temp_vector_data1);
 }
 
-float *Kalman_Filter_Calculate(kalman_filter_t *KF, float *input)
+float *Kalman_Filter_Calculate(kalman_filter_t *KF)
 {
-    //更新测量数据
-    for (uint8_t i = 0; i < KF->xhat_size; i++)
-    {
-        KF->Raw_Value[i] = input[i];
-        KF->z_data[i] = input[i];
-    }
+    static uint8_t valid_num = -1;
+
+    valid_num = H_K_R_Adjustment(KF);
 
     //1. xhat'(k)= A xhat(k-1) + B u
-    Matrix_Multiply(&KF->A, &KF->xhat, &KF->temp_vector);
-    Matrix_Multiply(&KF->B, &KF->u, &KF->temp_vector1);
-    Matrix_Add(&KF->temp_vector, &KF->temp_vector1, &KF->xhatminus);
+    if (KF->u_size > 0)
+    {
+        Matrix_Multiply(&KF->A, &KF->xhat, &KF->temp_vector);
+        Matrix_Multiply(&KF->B, &KF->u, &KF->temp_vector1);
+        Matrix_Add(&KF->temp_vector, &KF->temp_vector1, &KF->xhatminus);
+    }
+    else
+    {
+        Matrix_Multiply(&KF->A, &KF->xhat, &KF->xhatminus);
+    }
 
     //2. P'(k) = A P(k-1) AT + Q
     Matrix_Transpose(&KF->A, &KF->AT);
@@ -123,38 +221,60 @@ float *Kalman_Filter_Calculate(kalman_filter_t *KF, float *input)
     Matrix_Multiply(&KF->Pminus, &KF->AT, &KF->temp_matrix);
     Matrix_Add(&KF->temp_matrix, &KF->Q, &KF->Pminus);
 
-    //3. K(k) = P'(k) HT / (H P'(k) HT + R)
-    Matrix_Transpose(&KF->H, &KF->HT);
-    Matrix_Multiply(&KF->H, &KF->Pminus, &KF->K);
-    Matrix_Multiply(&KF->K, &KF->HT, &KF->temp_matrix);
-    Matrix_Add(&KF->temp_matrix, &KF->R, &KF->K);
-    Matrix_Inverse(&KF->K, &KF->P);
-    Matrix_Multiply(&KF->Pminus, &KF->HT, &KF->temp_matrix);
-    Matrix_Multiply(&KF->temp_matrix, &KF->P, &KF->K);
+    if (valid_num != 0)
+    {
+        //3. K(k) = P'(k) HT / (H P'(k) HT + R)
+        Matrix_Transpose(&KF->H, &KF->HT);
+        Matrix_Multiply(&KF->H, &KF->Pminus, &KF->K);
+        Matrix_Multiply(&KF->K, &KF->HT, &KF->temp_matrix);
+        Matrix_Add(&KF->temp_matrix, &KF->R, &KF->K);
+        Matrix_Inverse(&KF->K, &KF->P);
+        Matrix_Multiply(&KF->Pminus, &KF->HT, &KF->temp_matrix);
+        Matrix_Multiply(&KF->temp_matrix, &KF->P, &KF->K);
 
-    //4. xhat(k) = xhat'(k) + K(k) (z(k) - H xhat'(k))
-    Matrix_Multiply(&KF->H, &KF->xhatminus, &KF->temp_vector);
-    Matrix_Subtract(&KF->z, &KF->temp_vector, &KF->xhat);
-    Matrix_Multiply(&KF->K, &KF->xhat, &KF->temp_vector);
-    Matrix_Add(&KF->xhatminus, &KF->temp_vector, &KF->xhat);
+        //4. xhat(k) = xhat'(k) + K(k) (z(k) - H xhat'(k))
+        Matrix_Multiply(&KF->H, &KF->xhatminus, &KF->temp_vector);
+        Matrix_Subtract(&KF->z, &KF->temp_vector, &KF->xhat);
+        Matrix_Multiply(&KF->K, &KF->xhat, &KF->temp_vector);
+        Matrix_Add(&KF->xhatminus, &KF->temp_vector, &KF->xhat);
 
-    //5. P(k) = (1-K(k)H)P'(k)
-    //参考的资料这里计算的是 Q - K(k)H 我还没弄明白为什么
-    //就暂且将括号乘开了
-    // Matrix_Multiply(&KF->K, &KF->H, &KF->P);
-    // Matrix_Subtract(&KF->Q, &KF->P, &KF->temp_matrix);
-    // Matrix_Multiply(&KF->temp_matrix, &KF->Pminus, &KF->P);
+        //5. P(k) = (1-K(k)H)P'(k) ==> P(k) = P'(k)-K(k)HP'(k)
+        Matrix_Multiply(&KF->K, &KF->H, &KF->temp_matrix);
+        Matrix_Multiply(&KF->temp_matrix, &KF->Pminus, &KF->temp_matrix1);
+        Matrix_Subtract(&KF->Pminus, &KF->temp_matrix1, &KF->P);
+    }
 
-    //5. P(k) = P'(k)-K(k)HP'(k)
-    Matrix_Multiply(&KF->K, &KF->H, &KF->temp_matrix);
-    Matrix_Multiply(&KF->temp_matrix, &KF->Pminus, &KF->temp_matrix1);
-    Matrix_Subtract(&KF->Pminus, &KF->temp_matrix1, &KF->P);
+    memcpy(KF->Filtered_Value, KF->xhat_data, sizeof(float) * KF->xhat_size);
 
-    //滤波数据输出数据
-    for (uint8_t i = 0; i < KF->xhat_size; i++)
-        KF->Filtered_Value[i] = KF->xhat_data[i];
+    memset(KF->z_data, 0, sizeof(float) * KF->z_size);
+    memset(KF->u_data, 0, sizeof(float) * KF->u_size);
 
     return KF->Filtered_Value;
+}
+
+static uint8_t H_K_R_Adjustment(kalman_filter_t *KF)
+{
+    static uint8_t valid_num = 0;
+    valid_num = 0;
+
+    //recognize measurement validity and adjust matrix H R K
+    for (uint8_t i = 0; i < KF->xhat_size; i++)
+    {
+        if (KF->z_data[i] != 0)
+        {
+            KF->z_data[valid_num] = KF->z_data[i];
+            KF->H_data[KF->xhat_size * valid_num + KF->Measurement_Reference[i] - 1] = KF->Measurement_Degree[i];
+            KF->R_data[KF->xhat_size * valid_num + valid_num] = KF->Mat_R_Diagonal_Elements[i];
+            valid_num++;
+        }
+    }
+
+    Matrix_Init(&KF->H, valid_num, KF->xhat_size, (float *)KF->H_data);
+    Matrix_Init(&KF->HT, KF->xhat_size, valid_num, (float *)KF->HT_data);
+    Matrix_Init(&KF->R, valid_num, valid_num, (float *)KF->R_data);
+    Matrix_Init(&KF->K, KF->xhat_size, valid_num, (float *)KF->K_data);
+
+    return valid_num;
 }
 
 #endif //ARM_MATH_CM4

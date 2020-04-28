@@ -2,8 +2,8 @@
   ******************************************************************************
   * @file    kalman_filter.h
   * @author  Hongxi Wong
-  * @version V1.0.2
-  * @date    2020/3/1
+  * @version V1.0.3
+  * @date    2020/4/27
   * @brief   
   ******************************************************************************
   * @attention 
@@ -13,7 +13,7 @@
 #ifndef __KALMAN_FILTER_H
 #define __KALMAN_FILTER_H
 
-//stm32 DSP lib
+//cortex-m4 DSP lib
 #ifndef ARM_MATH_CM4
 #define ARM_MATH_CM4
 #endif
@@ -49,22 +49,28 @@
 
 typedef struct
 {
-    uint8_t xhat_size;
     float *Raw_Value;
     float *Filtered_Value;
 
-    mat xhat;      //状态向量
-    mat xhatminus; //状态向量先验估计
-    mat u;         //控制向量
-    mat z;         //测量数据向量
-    mat P;         //协方差矩阵
-    mat Pminus;    //协方差矩阵先验估计
-    mat A, AT;     //状态转移矩阵
-    mat B;         //控制矩阵
-    mat H, HT;     //观测矩阵
-    mat Q;         //模型噪声矩阵
-    mat R;         //传感器噪声矩阵
-    mat K;         //卡尔曼增益
+    uint8_t xhat_size;
+    uint8_t u_size;
+    uint8_t z_size;
+    uint8_t *Measurement_Reference; //how measurement relates to the state vector
+    float *Measurement_Degree;      //How directly do sensors measure states
+    float *Mat_R_Diagonal_Elements; //variance for each measurement
+
+    mat xhat;      //x(k|k)
+    mat xhatminus; //x(k|k-1)
+    mat u;         //control vector u
+    mat z;         //measurement vector z
+    mat P;         //covariance matrix P(k|k)
+    mat Pminus;    //covariance matrix P(k|k-1)
+    mat A, AT;     //state transition matrix A AT
+    mat B;         //control matrix B
+    mat H, HT;     // measurement matrix H
+    mat Q;         //process noise covariance matrix Q
+    mat R;         //measurement noise covariance matrix R
+    mat K;         //kalman gain  K
     mat temp_matrix, temp_matrix1, temp_vector, temp_vector1;
 
     float *xhat_data, *xhatminus_data;
@@ -80,8 +86,8 @@ typedef struct
     float *temp_matrix_data, *temp_matrix_data1, *temp_vector_data, *temp_vector_data1;
 } kalman_filter_t;
 
-void Kalman_Filter_Init(kalman_filter_t *KF, uint8_t xhat_size);
-float *Kalman_Filter_Calculate(kalman_filter_t *KF, float *input);
+void Kalman_Filter_Init(kalman_filter_t *KF, uint8_t xhat_size, uint8_t u_size, uint8_t z_size);
+float *Kalman_Filter_Calculate(kalman_filter_t *KF);
 
 #endif //ARM_MATH_CM4
 
