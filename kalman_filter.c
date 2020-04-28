@@ -7,22 +7,28 @@
   * @brief   
   ******************************************************************************
   * @attention 
+  * 这个卡尔曼滤波器可以在传感器采样频率不同的情况下，动态调整矩阵H R和K的维数与数值。
   * This kalman filter tool can dynamically adjust dimension and value of matrix 
   * H R and K according to measurement validity when the measuring frequency of 
   * sensors are not the same. 
   * 
+  * 因此矩阵H和R的初始化会与矩阵P A和Q有所不同。另外的，在初始化量测向量z时需要额外写入
+  * 传感器量测所对应的状态与这个量测的直接程度，详情请见例程
   * So there will be some differences between matrix P A and Q between matrix H R 
   * when initialization. Additionally, "how measurement relates to the state vector"
-  * and "how much directly do sensors measure states" should be given when initializing.
-  * Please see the example for the detailed information. 
+  * and "how much directly do sensors measure states" should be given when initializing
+  * measurement vector z. Please see the example for the detailed information. 
   * 
-  * If you don't need the automatic adjustment. You can just simply remove the
-  * H_K_R_Adjustment function in Kalman_Filter_Update and initialize z H R in general 
-  * way like matrix P.
+  * 若不需要动态调整量测向量z，可简单将结构体中的Use_Auto_Adjustment初始化为0，并像初始化
+  * 矩阵P那样用常规方式初始化z H R即可。
+  * If you don't need the automatic adjustment. You can just simply initialize the
+  * Use_Auto_Adjustment to zero and initialize z H R in general way like matrix P.
   * 
+  * 要求量测向量z与控制向量u在传感器回调函数中更新。整数0意味着量测无效，即自上次卡尔曼滤波
+  * 更新后无传感器数据更新。因此量测向量z与控制向量u会在卡尔曼滤波更新过程中被清零
   * It is required that update z_data and u_data in sensor callback function. And 
   * integer 0 in measurement vector z means the current measurement is invalid. So 
-  * z_data and u_data will be zeroed after each update. 
+  * z_data and u_data will be zeroed during each update. 
   * 
   * @example:
   * xhat = 
@@ -52,7 +58,8 @@
   *         0.5*dt*dt*dt,        dt*dt,         dt, 
   *         0.5*dt*dt,              dt,         1, 
   *     };
-  * 
+  *     
+  *     Height_KF.Use_Auto_Adjustment = 1;
   *     //baro for height  GPS for height  IMU for acc
   *     static uint8_t measurement_reference[3] = {1, 1, 3}
   *     //barometer measures height indirectly
@@ -222,6 +229,8 @@ void Kalman_Filter_Init(kalman_filter_t *KF, uint8_t xhat_size, uint8_t u_size, 
 float *Kalman_Filter_Update(kalman_filter_t *KF)
 {
     static uint8_t valid_num = -1;
+    if (KF->Use_Auto_Adjustment != 0)
+        valid_num = H_K_R_Adjustment(KF);
 
     //1. xhat'(k)= A xhat(k-1) + B u
     if (KF->u_size > 0)
@@ -242,8 +251,6 @@ float *Kalman_Filter_Update(kalman_filter_t *KF)
     Matrix_Multiply(&KF->A, &KF->P, &KF->Pminus);
     Matrix_Multiply(&KF->Pminus, &KF->AT, &KF->temp_matrix);
     Matrix_Add(&KF->temp_matrix, &KF->Q, &KF->Pminus);
-
-    valid_num = H_K_R_Adjustment(KF);
 
     if (valid_num != 0)
     {

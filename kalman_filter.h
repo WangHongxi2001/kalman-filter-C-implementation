@@ -55,6 +55,7 @@ typedef struct
     uint8_t xhat_size;
     uint8_t u_size;
     uint8_t z_size;
+    uint8_t Use_Auto_Adjustment;
     uint8_t *Measurement_Reference; //how measurement relates to the state vector
     float *Measurement_Degree;      //how much directly do sensors measure states
     float *Mat_R_Diagonal_Elements; //variance for each measurement
