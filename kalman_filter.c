@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    kalman_filter.c
   * @author  Hongxi Wong
-  * @version V1.0.4
+  * @version V1.0.5
   * @date    2020/5/1
   * @brief   
   ******************************************************************************
@@ -315,6 +315,8 @@ float *Kalman_Filter_Update(kalman_filter_t *KF)
         memcpy(KF->xhat_data, KF->xhatminus_data, sizeof_float * KF->xhat_size);
     }
 
+    memset(KF->R_data, 0, sizeof_float * KF->z_size * KF->z_size);
+
     memcpy(KF->Filtered_Value, KF->xhat_data, sizeof_float * KF->xhat_size);
 
     return KF->Filtered_Value;
@@ -335,9 +337,12 @@ static uint8_t H_K_R_Adjustment(kalman_filter_t *KF)
         {
             KF->z_data[valid_num] = KF->z_data[i];
             KF->H_data[KF->xhat_size * valid_num + KF->Measurement_Reference[i] - 1] = KF->Measurement_Degree[i];
-            KF->R_data[KF->xhat_size * valid_num + valid_num] = KF->Mat_R_Diagonal_Elements[i];
             valid_num++;
         }
+    }
+    for (uint8_t i = 0; i < valid_num; i++)
+    {
+        KF->R_data[i * valid_num + i] = KF->Mat_R_Diagonal_Elements[i];
     }
 
     //Matrix_Init(&KF->H, valid_num, KF->xhat_size, (float *)KF->H_data);
