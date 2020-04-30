@@ -2,8 +2,8 @@
   ******************************************************************************
   * @file    kalman_filter.h
   * @author  Hongxi Wong
-  * @version V1.0.3
-  * @date    2020/4/27
+  * @version V1.0.4
+  * @date    2020/5/1
   * @brief   
   ******************************************************************************
   * @attention 
@@ -12,6 +12,8 @@
   */
 #ifndef __KALMAN_FILTER_H
 #define __KALMAN_FILTER_H
+
+#include "includes.h"
 
 //cortex-m4 DSP lib
 #ifndef ARM_MATH_CM4
@@ -25,6 +27,9 @@
 #endif
 #ifndef ARM_MATH_ROUNDING
 #define ARM_MATH_ROUNDING
+#endif
+#ifndef ARM_MATH_DSP
+#define ARM_MATH_DSP
 #endif
 
 #include <math.h>
@@ -51,6 +56,8 @@ typedef struct
 {
     float *Raw_Value;
     float *Filtered_Value;
+    float *Measured_Vector;
+    float *Control_Vector;
 
     uint8_t xhat_size;
     uint8_t u_size;
@@ -73,7 +80,7 @@ typedef struct
     mat Q;         //process noise covariance matrix Q
     mat R;         //measurement noise covariance matrix R
     mat K;         //kalman gain  K
-    mat temp_matrix, temp_matrix1, temp_vector, temp_vector1;
+    mat S, temp_matrix, temp_matrix1, temp_vector, temp_vector1;
 
     float *xhat_data, *xhatminus_data;
     float *u_data;
@@ -86,7 +93,7 @@ typedef struct
     float *Q_data;
     float *R_data;
     float *K_data;
-    float *temp_matrix_data, *temp_matrix_data1, *temp_vector_data, *temp_vector_data1;
+    float *S_data, *temp_matrix_data, *temp_matrix_data1, *temp_vector_data, *temp_vector_data1;
 } kalman_filter_t;
 
 void Kalman_Filter_Init(kalman_filter_t *KF, uint8_t xhat_size, uint8_t u_size, uint8_t z_size);
