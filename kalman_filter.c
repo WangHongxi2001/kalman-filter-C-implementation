@@ -314,8 +314,9 @@ float *Kalman_Filter_Update(kalman_filter_t *KF)
     {
         memcpy(KF->xhat_data, KF->xhatminus_data, sizeof_float * KF->xhat_size);
     }
-
-    memset(KF->R_data, 0, sizeof_float * KF->z_size * KF->z_size);
+    
+    if (KF->Use_Auto_Adjustment != 0)
+        memset(KF->R_data, 0, sizeof_float * KF->z_size * KF->z_size);
 
     memcpy(KF->Filtered_Value, KF->xhat_data, sizeof_float * KF->xhat_size);
 
