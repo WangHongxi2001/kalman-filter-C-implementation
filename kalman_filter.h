@@ -13,8 +13,6 @@
 #ifndef __KALMAN_FILTER_H
 #define __KALMAN_FILTER_H
 
-#include "includes.h"
-
 //cortex-m4 DSP lib
 #ifndef ARM_MATH_CM4
 #define ARM_MATH_CM4
@@ -35,7 +33,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include "stm32f4xx.h"
-#ifdef ARM_MATH_CM4
+#ifdef ARM_MATH_MATRIX_CHECK
 #include "arm_math.h"
 
 #ifdef _CMSIS_OS_H
@@ -62,9 +60,11 @@ typedef struct
     uint8_t xhat_size;
     uint8_t u_size;
     uint8_t z_size;
+
     uint8_t Use_Auto_Adjustment;
+
     uint8_t *Measurement_Reference; //how measurement relates to the state vector
-    float *Measurement_Degree;      //how much directly do sensors measure states
+    float *Measurement_Degree;      //how does sensors measure states
     float *Mat_R_Diagonal_Elements; //variance for each measurement
 
     mat xhat;      //x(k|k)
@@ -99,6 +99,6 @@ typedef struct
 void Kalman_Filter_Init(kalman_filter_t *KF, uint8_t xhat_size, uint8_t u_size, uint8_t z_size);
 float *Kalman_Filter_Update(kalman_filter_t *KF);
 
-#endif //ARM_MATH_CM4
+#endif //ARM_MATH_MATRIX_CHECK
 
 #endif //__KALMAN_FILTER_H

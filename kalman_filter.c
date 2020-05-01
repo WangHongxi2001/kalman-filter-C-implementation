@@ -265,8 +265,7 @@ float *Kalman_Filter_Update(kalman_filter_t *KF)
     Matrix_Multiply(&KF->A, &KF->P, &KF->Pminus);
     KF->temp_matrix.numRows = KF->Pminus.numRows;
     KF->temp_matrix.numCols = KF->AT.numCols;
-
-    Matrix_Multiply(&KF->Pminus, &KF->AT, &KF->temp_matrix);
+    Matrix_Multiply(&KF->Pminus, &KF->AT, &KF->temp_matrix); //temp_matrix = A P(k-1) AT
     Matrix_Add(&KF->temp_matrix, &KF->Q, &KF->Pminus);
 
     if (valid_num != 0 || KF->Use_Auto_Adjustment == 0)
