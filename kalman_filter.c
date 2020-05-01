@@ -4,7 +4,7 @@
   * @author  Hongxi Wong
   * @version V1.0.5
   * @date    2020/5/1
-  * @brief   
+  * @brief   C implementation of kalman filter
   ******************************************************************************
   * @attention 
   * 该卡尔曼滤波器可以在传感器采样频率不同的情况下，动态调整矩阵H R和K的维数与数值。
