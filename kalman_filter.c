@@ -263,7 +263,6 @@ float *Kalman_Filter_Update(kalman_filter_t *KF)
     //2. P'(k) = A P(k-1) AT + Q
     Matrix_Transpose(&KF->A, &KF->AT);
     Matrix_Multiply(&KF->A, &KF->P, &KF->Pminus);
-    //Matrix_Init(&KF->temp_matrix, KF->Pminus.numRows, KF->AT.numCols, (float *)KF->temp_matrix_data);
     KF->temp_matrix.numRows = KF->Pminus.numRows;
     KF->temp_matrix.numCols = KF->AT.numCols;
 
@@ -276,45 +275,45 @@ float *Kalman_Filter_Update(kalman_filter_t *KF)
         Matrix_Transpose(&KF->H, &KF->HT); //z|x => x|z
         KF->temp_matrix.numRows = KF->H.numRows;
         KF->temp_matrix.numCols = KF->Pminus.numCols;
-        Matrix_Multiply(&KF->H, &KF->Pminus, &KF->temp_matrix); //z|x * x|x = z|x  temp_matrix = H P'(k)
+        Matrix_Multiply(&KF->H, &KF->Pminus, &KF->temp_matrix); //temp_matrix = H P'(k)
         KF->temp_matrix1.numRows = KF->temp_matrix.numRows;
         KF->temp_matrix1.numCols = KF->HT.numCols;
-        Matrix_Multiply(&KF->temp_matrix, &KF->HT, &KF->temp_matrix1); //z|x * x|z = z|z temp_matrix1 = H P'(k) HT
+        Matrix_Multiply(&KF->temp_matrix, &KF->HT, &KF->temp_matrix1); //temp_matrix1 = H P'(k) HT
         KF->S.numRows = KF->R.numRows;
         KF->S.numCols = KF->R.numCols;
-        Matrix_Add(&KF->temp_matrix1, &KF->R, &KF->S); //z|z + z|z = z|z   S = H P'(k) HT + R
-        Matrix_Inverse(&KF->S, &KF->temp_matrix1);     //z|z => z|z  temp_matrix1 = inv(H P'(k) HT + R)
+        Matrix_Add(&KF->temp_matrix1, &KF->R, &KF->S); //S = H P'(k) HT + R
+        Matrix_Inverse(&KF->S, &KF->temp_matrix1);     //temp_matrix1 = inv(H P'(k) HT + R)
         KF->temp_matrix.numRows = KF->Pminus.numRows;
         KF->temp_matrix.numCols = KF->HT.numCols;
-        Matrix_Multiply(&KF->Pminus, &KF->HT, &KF->temp_matrix);      //x|x * x|z = x|z  temp_matrix = P'(k) HT
-        Matrix_Multiply(&KF->temp_matrix, &KF->temp_matrix1, &KF->K); //x|z * z|z = x|z
+        Matrix_Multiply(&KF->Pminus, &KF->HT, &KF->temp_matrix); //temp_matrix = P'(k) HT
+        Matrix_Multiply(&KF->temp_matrix, &KF->temp_matrix1, &KF->K);
 
         //4. xhat(k) = xhat'(k) + K(k) (z(k) - H xhat'(k))
         KF->temp_vector.numRows = KF->H.numRows;
         KF->temp_vector.numCols = 1;
-        Matrix_Multiply(&KF->H, &KF->xhatminus, &KF->temp_vector); //z|x * x|1 = z|1 temp_vector = H xhat'(k)
+        Matrix_Multiply(&KF->H, &KF->xhatminus, &KF->temp_vector); //temp_vector = H xhat'(k)
         KF->temp_vector1.numRows = KF->z.numRows;
         KF->temp_vector1.numCols = 1;
-        Matrix_Subtract(&KF->z, &KF->temp_vector, &KF->temp_vector1); //z|1 1 z|1 = z|1
+        Matrix_Subtract(&KF->z, &KF->temp_vector, &KF->temp_vector1); //temp_vector1 = z(k) - H xhat'(k)
         KF->temp_vector.numRows = KF->K.numRows;
         KF->temp_vector.numCols = 1;
-        Matrix_Multiply(&KF->K, &KF->temp_vector1, &KF->temp_vector); //x|z * z|1 = x|1
-        Matrix_Add(&KF->xhatminus, &KF->temp_vector, &KF->xhat);      //x|1 + z|1 = x|1
+        Matrix_Multiply(&KF->K, &KF->temp_vector1, &KF->temp_vector); //temp_vector = K(k) (z(k) - H xhat'(k))
+        Matrix_Add(&KF->xhatminus, &KF->temp_vector, &KF->xhat);
 
         //5. P(k) = (1-K(k)H)P'(k) ==> P(k) = P'(k)-K(k)HP'(k)
         KF->temp_matrix.numRows = KF->K.numRows;
         KF->temp_matrix.numCols = KF->H.numCols;
         KF->temp_matrix1.numRows = KF->temp_matrix.numRows;
         KF->temp_matrix1.numCols = KF->Pminus.numCols;
-        Matrix_Multiply(&KF->K, &KF->H, &KF->temp_matrix);                 //x|z * z|x = x|x temp_matrix = K(k)H
-        Matrix_Multiply(&KF->temp_matrix, &KF->Pminus, &KF->temp_matrix1); //x|x * x|x = x|x temp_matrix1 = K(k)HP'(k)
-        Matrix_Subtract(&KF->Pminus, &KF->temp_matrix1, &KF->P);           //x|x - x|x = x|x
+        Matrix_Multiply(&KF->K, &KF->H, &KF->temp_matrix);                 //temp_matrix = K(k)H
+        Matrix_Multiply(&KF->temp_matrix, &KF->Pminus, &KF->temp_matrix1); //temp_matrix1 = K(k)HP'(k)
+        Matrix_Subtract(&KF->Pminus, &KF->temp_matrix1, &KF->P);
     }
     else
     {
         memcpy(KF->xhat_data, KF->xhatminus_data, sizeof_float * KF->xhat_size);
     }
-    
+
     if (KF->Use_Auto_Adjustment != 0)
         memset(KF->R_data, 0, sizeof_float * KF->z_size * KF->z_size);
 
@@ -336,26 +335,26 @@ static uint8_t H_K_R_Adjustment(kalman_filter_t *KF)
     {
         if (KF->z_data[i] != 0)
         {
+            //rebuild vector z
             KF->z_data[valid_num] = KF->z_data[i];
+            //rebuild matrix H
             KF->H_data[KF->xhat_size * valid_num + KF->Measurement_Reference[i] - 1] = KF->Measurement_Degree[i];
             valid_num++;
         }
     }
     for (uint8_t i = 0; i < valid_num; i++)
     {
+        //rebuild matrix R
         KF->R_data[i * valid_num + i] = KF->Mat_R_Diagonal_Elements[i];
     }
 
-    //Matrix_Init(&KF->H, valid_num, KF->xhat_size, (float *)KF->H_data);
+    //adjust the dimension of system matrix
     KF->H.numRows = valid_num;
     KF->H.numCols = KF->xhat_size;
-    //Matrix_Init(&KF->HT, KF->xhat_size, valid_num, (float *)KF->HT_data);
     KF->HT.numRows = KF->xhat_size;
     KF->HT.numCols = valid_num;
-    //Matrix_Init(&KF->R, valid_num, valid_num, (float *)KF->R_data);
     KF->R.numRows = valid_num;
     KF->R.numCols = valid_num;
-    //Matrix_Init(&KF->K, valid_num, KF->xhat_size, (float *)KF->K_data);
     KF->K.numRows = KF->xhat_size;
     KF->K.numCols = valid_num;
 
