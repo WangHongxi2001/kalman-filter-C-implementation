@@ -1,4 +1,3 @@
-/**
 ******************************************************************************
   * @name    kalman_filter implementation
   * @author  Hongxi Wong <hongxiw0x7d1@foxmail.com>
@@ -6,7 +5,6 @@
   * @date    2020/5/1
   * @brief   C implementation of kalman filter
 ******************************************************************************
-  * @attention 
 该卡尔曼滤波器可以在传感器采样频率不同的情况下，动态调整矩阵H R和K的维数与数值。
 This implementation of kalman filter can dynamically adjust dimension and  
 value of matrix H R and K according to the measurement validity under any 
@@ -31,4 +29,4 @@ callback function. Integer 0 in measurement vector z indicates the invalidity
 of current measurement, so Measured_Vector and Control_Vector will be reset 
 (to 0) during each update. 
 ******************************************************************************
-  */
+
