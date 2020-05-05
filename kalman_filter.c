@@ -2,8 +2,8 @@
   ******************************************************************************
   * @file    kalman_filter.c
   * @author  Hongxi Wong
-  * @version V1.0.5
-  * @date    2020/5/1
+  * @version V1.0.6
+  * @date    2020/5/5
   * @brief   C implementation of kalman filter
   ******************************************************************************
   * @attention 
@@ -31,6 +31,13 @@
   * of current measurement, so Measured_Vector and Control_Vector will be reset 
   * (to 0) during each update. 
   * 
+  * 此外，矩阵P过度收敛后滤波器将难以再适应状态的缓慢变化，从而产生滤波估计偏差。该算法
+  * 通过限制矩阵P最小值的方法，可有效抑制滤波器的过度收敛，详情请见例程。
+  * Additionally, the excessive convergence of matrix P will make filter incapable
+  * of adopting the slowly changing state. This implementation can effectively
+  * suppress filter excessive convergence through boundary limiting for matrix P.
+  * For more details, please see the example.
+  * 
   * @example:
   * x = 
   *   |   height   |
@@ -39,7 +46,7 @@
   * 
   * kalman_filter_t Height_KF;
   * 
-  * void INS_Task_Init(void)
+  * void Height_KF_Init(void)
   * {
   *     static float P_Init[9] =
   *     {
@@ -59,19 +66,24 @@
   *         0.5*dt*dt*dt,        dt*dt,         dt, 
   *         0.5*dt*dt,              dt,         1, 
   *     };
+  * 
+  *     //boundary limiting for matrix P
+  *     static float state_min_variance[3] = {0.03, 0.005, 0.1};
   *     
   *     Height_KF.Use_Auto_Adjustment = 1;
+  * 
   *     //baro for height  GPS for height  IMU for acc
-  *     static uint8_t measurement_reference[3] = {1, 1, 3}
+  *     static uint8_t measurement_reference[3] = {1, 1, 3};
+  * 
   *     //barometer measures height indirectly
-  *     static float measurement_degree[3] = {0.8, 1, 1}     
+  *     static float measurement_degree[3] = {0.8, 1, 1};     
   *     //according to measurement_reference and measurement_degree
   *     //matrix H will be like this:
   *       |0.8   0   0|
   *       |  1   0   0|
   *       |  0   0   1|
   * 
-  *     static float mat_R_diagonal_elements = {30, 25, 35}
+  *     static float mat_R_diagonal_elements[3] = {30, 25, 35};
   *     //according to mat_R_diagonal_elements 
   *     //matrix R will be like this:
   *       |30   0   0|
@@ -79,12 +91,14 @@
   *       | 0   0  35|
   * 
   *     Kalman_Filter_Init(&Height_KF, 3, 0, 3);
+  * 
   *     memcpy(Height_KF.P_data, P_Init, sizeof(P_Init));
   *     memcpy(Height_KF.A_data, A_Init, sizeof(A_Init));
   *     memcpy(Height_KF.Q_data, Q_Init, sizeof(Q_Init));
   *     memcpy(Height_KF.Measurement_Reference, measurement_reference, sizeof(measurement_reference));
   *     memcpy(Height_KF.Measurement_Degree, measurement_degree, sizeof(measurement_degree));
   *     memcpy(Height_KF.Mat_R_Diagonal_Elements, mat_R_diagonal_elements, sizeof(mat_R_diagonal_elements));
+  *     memcpy(Height_KF.State_Min_Variance, state_min_variance, sizeof(state_min_variance));
   * }
   * 
   * void INS_Task(void const *pvParameters)
@@ -144,8 +158,10 @@ void Kalman_Filter_Init(kalman_filter_t *KF, uint8_t xhat_size, uint8_t u_size, 
     memset(KF->Filtered_Value, 0, sizeof_float * xhat_size);
     KF->Measured_Vector = (float *)user_malloc(sizeof_float * z_size);
     memset(KF->Measured_Vector, 0, sizeof_float * z_size);
-    KF->Control_Vector = (float *)user_malloc(sizeof_float * z_size);
+    KF->Control_Vector = (float *)user_malloc(sizeof_float * u_size);
     memset(KF->Control_Vector, 0, sizeof_float * u_size);
+    KF->State_Min_Variance = (float *)user_malloc(sizeof_float * xhat_size);
+    memset(KF->State_Min_Variance, 0, sizeof_float * xhat_size);
 
     //create xhat x(k|k)
     KF->xhat_data = (float *)user_malloc(sizeof_float * xhat_size);
@@ -311,6 +327,12 @@ float *Kalman_Filter_Update(kalman_filter_t *KF)
     else
     {
         memcpy(KF->xhat_data, KF->xhatminus_data, sizeof_float * KF->xhat_size);
+    }
+
+    for (uint8_t i = 0; i < KF->xhat_size; i++)
+    {
+        if (KF->P_data[i * KF->xhat_size + i] < KF->State_Min_Variance[i])
+            KF->P_data[i * KF->xhat_size + i] = KF->State_Min_Variance[i];
     }
 
     if (KF->Use_Auto_Adjustment != 0)

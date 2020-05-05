@@ -2,8 +2,8 @@
   ******************************************************************************
   * @file    kalman_filter.h
   * @author  Hongxi Wong
-  * @version V1.0.5
-  * @date    2020/5/1
+  * @version V1.0.6
+  * @date    2020/5/5
   * @brief   
   ******************************************************************************
   * @attention 
@@ -66,6 +66,7 @@ typedef struct
     uint8_t *Measurement_Reference; //how measurement relates to the state vector
     float *Measurement_Degree;      //how does sensors measure states
     float *Mat_R_Diagonal_Elements; //variance for each measurement
+    float *State_Min_Variance;      //suppress filter excessive convergence
 
     mat xhat;      //x(k|k)
     mat xhatminus; //x(k|k-1)
