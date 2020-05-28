@@ -2,8 +2,8 @@
   ******************************************************************************
   * @file    kalman_filter.c
   * @author  Hongxi Wong
-  * @version V1.0.7
-  * @date    2020/5/28
+  * @version V1.0.5
+  * @date    2020/5/5
   * @brief   C implementation of kalman filter
   ******************************************************************************
   * @attention 
@@ -46,7 +46,7 @@
   * 
   * kalman_filter_t Height_KF;
   * 
-  * void Height_KF_Init(void)
+  * void INS_Task_Init(void)
   * {
   *     static float P_Init[9] =
   *     {
@@ -73,17 +73,17 @@
   *     Height_KF.Use_Auto_Adjustment = 1;
   * 
   *     //baro for height  GPS for height  IMU for acc
-  *     static uint8_t measurement_reference[3] = {1, 1, 3};
+  *     static uint8_t measurement_reference[3] = {1, 1, 3}
   * 
   *     //barometer measures height indirectly
-  *     static float measurement_degree[3] = {0.8, 1, 1};     
+  *     static float measurement_degree[3] = {0.8, 1, 1}     
   *     //according to measurement_reference and measurement_degree
   *     //matrix H will be like this:
   *       |0.8   0   0|
   *       |  1   0   0|
   *       |  0   0   1|
   * 
-  *     static float mat_R_diagonal_elements[3] = {30, 25, 35};
+  *     static float mat_R_diagonal_elements = {30, 25, 35}
   *     //according to mat_R_diagonal_elements 
   *     //matrix R will be like this:
   *       |30   0   0|
@@ -339,7 +339,10 @@ float *Kalman_Filter_Update(kalman_filter_t *KF)
     }
 
     if (KF->Use_Auto_Adjustment != 0)
+    {
         memset(KF->R_data, 0, sizeof_float * KF->z_size * KF->z_size);
+        memset(KF->H_data, 0, sizeof_float * KF->xhat_size * KF->z_size);
+    }
 
     memcpy(KF->Filtered_Value, KF->xhat_data, sizeof_float * KF->xhat_size);
 
@@ -370,7 +373,7 @@ static uint8_t H_K_R_Adjustment(kalman_filter_t *KF)
     for (uint8_t i = 0; i < valid_num; i++)
     {
         //rebuild matrix R
-        KF->R_data[i * valid_num + i] = KF->Mat_R_Diagonal_Elements[KF->temp[valid_num]];
+        KF->R_data[i * valid_num + i] = KF->Mat_R_Diagonal_Elements[KF->temp[i]];
     }
 
     //adjust the dimension of system matrix
