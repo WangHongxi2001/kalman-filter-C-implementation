@@ -329,6 +329,7 @@ float *Kalman_Filter_Update(kalman_filter_t *KF)
     else
     {
         memcpy(KF->xhat_data, KF->xhatminus_data, sizeof_float * KF->xhat_size);
+        memcpy(KF->P_data, KF->Pminus_data, sizeof_float * KF->xhat_size * KF->xhat_size);
     }
 
     for (uint8_t i = 0; i < KF->xhat_size; i++)
