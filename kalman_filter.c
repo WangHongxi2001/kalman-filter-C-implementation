@@ -2,8 +2,8 @@
   ******************************************************************************
   * @file    kalman_filter.c
   * @author  Hongxi Wong
-  * @version V1.0.6
-  * @date    2020/5/5
+  * @version V1.0.7
+  * @date    2020/5/28
   * @brief   C implementation of kalman filter
   ******************************************************************************
   * @attention 
@@ -150,6 +150,10 @@ void Kalman_Filter_Init(kalman_filter_t *KF, uint8_t xhat_size, uint8_t u_size, 
     memset(KF->Measurement_Degree, 0, sizeof_float * z_size);
     KF->Mat_R_Diagonal_Elements = (float *)user_malloc(sizeof_float * z_size);
     memset(KF->Mat_R_Diagonal_Elements, 0, sizeof_float * z_size);
+    KF->State_Min_Variance = (float *)user_malloc(sizeof_float * xhat_size);
+    memset(KF->State_Min_Variance, 0, sizeof_float * xhat_size);
+    KF->temp = (uint8_t *)user_malloc(sizeof(uint8_t) * z_size);
+    memset(KF->temp, 0, sizeof(uint8_t) * z_size);
 
     //allocate space for filter data
     KF->Raw_Value = (float *)user_malloc(sizeof_float * xhat_size);
@@ -160,8 +164,6 @@ void Kalman_Filter_Init(kalman_filter_t *KF, uint8_t xhat_size, uint8_t u_size, 
     memset(KF->Measured_Vector, 0, sizeof_float * z_size);
     KF->Control_Vector = (float *)user_malloc(sizeof_float * u_size);
     memset(KF->Control_Vector, 0, sizeof_float * u_size);
-    KF->State_Min_Variance = (float *)user_malloc(sizeof_float * xhat_size);
-    memset(KF->State_Min_Variance, 0, sizeof_float * xhat_size);
 
     //create xhat x(k|k)
     KF->xhat_data = (float *)user_malloc(sizeof_float * xhat_size);
@@ -358,6 +360,7 @@ static uint8_t H_K_R_Adjustment(kalman_filter_t *KF)
         {
             //rebuild vector z
             KF->z_data[valid_num] = KF->z_data[i];
+            KF->temp[valid_num] = i;
             //rebuild matrix H
             KF->H_data[KF->xhat_size * valid_num + KF->Measurement_Reference[i] - 1] = KF->Measurement_Degree[i];
             valid_num++;
@@ -366,7 +369,7 @@ static uint8_t H_K_R_Adjustment(kalman_filter_t *KF)
     for (uint8_t i = 0; i < valid_num; i++)
     {
         //rebuild matrix R
-        KF->R_data[i * valid_num + i] = KF->Mat_R_Diagonal_Elements[i];
+        KF->R_data[i * valid_num + i] = KF->Mat_R_Diagonal_Elements[KF->temp[valid_num]];
     }
 
     //adjust the dimension of system matrix
