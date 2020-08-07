@@ -56,13 +56,12 @@ void Height_KF_Init(void)
     //baro for height  GPS for height  IMU for acc
     static uint8_t measurement_reference[3] = {1, 1, 3};
     
-    //barometer measures height indirectly
-    static float measurement_degree[3] = {0.8, 1, 1};
+    static float measurement_degree[3] = {1, 1, 1};
     //according to measurement_reference and measurement_degree
     //matrix H will be like this:
-    //| 0.8 0 0 |
-    //|   1 0 0 |
-    //|   0 0 1 |
+    //| 1 0 0 |
+    //| 1 0 0 |
+    //| 0 0 1 |
     
     static float mat_R_diagonal_elements[3] = {30, 25, 35};
     //according to mat_R_diagonal_elements
