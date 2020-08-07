@@ -83,26 +83,22 @@ void Height_KF_Init(void)
     memcpy(Height_KF.State_Min_Variance, state_min_variance, sizeof(state_min_variance));
 }
 void INS_Task(void const *pvParameters)
-
 {
     //infinite loop
     Kalman_Filter_Update(&Height_KF);
     vTaskDelay(ts);
 }
 void Barometer_Read_Over(void)
-
 {
     //......
     INS_KF.Measured_Vector[0] = baro_height;
 }
 void GPS_Read_Over(void)
-
 {
     //......
     INS_KF.Measured_Vector[1] = GPS_height;
 }
 void Acc_Data_Process(void)
-
 {
     //......
     INS_KF.Measured_Vector[2] = acc.z;
