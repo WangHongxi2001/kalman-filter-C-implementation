@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    kalman filter.h
   * @author  Hongxi Wong
-  * @version V1.1.0
+  * @version V1.1.2
   * @date    2020/12/17
   * @brief   
   ******************************************************************************
@@ -50,7 +50,7 @@
 #define Matrix_Transpose arm_mat_trans_f32
 #define Matrix_Inverse arm_mat_inverse_f32
 
-typedef struct
+typedef struct kf_t
 {
     float *RawValue;
     float *FilteredValue;
@@ -85,6 +85,14 @@ typedef struct
     mat K;         // kalman gain  K
     mat S, temp_matrix, temp_matrix1, temp_vector, temp_vector1;
 
+    void (*User_Func0_f)(struct kf_t *kf);
+    void (*User_Func1_f)(struct kf_t *kf);
+    void (*User_Func2_f)(struct kf_t *kf);
+    void (*User_Func3_f)(struct kf_t *kf);
+    void (*User_Func4_f)(struct kf_t *kf);
+    void (*User_Func5_f)(struct kf_t *kf);
+    void (*User_Func6_f)(struct kf_t *kf);
+
     float *xhat_data, *xhatminus_data;
     float *u_data;
     float *z_data;
@@ -99,7 +107,7 @@ typedef struct
     float *S_data, *temp_matrix_data, *temp_matrix_data1, *temp_vector_data, *temp_vector_data1;
 } KalmanFilter_t;
 
-void Kalman_Filter_Init(KalmanFilter_t *KF, uint8_t xhatSize, uint8_t uSize, uint8_t zSize);
-float *Kalman_Filter_Update(KalmanFilter_t *KF);
+void Kalman_Filter_Init(KalmanFilter_t *kf, uint8_t xhatSize, uint8_t uSize, uint8_t zSize);
+float *Kalman_Filter_Update(KalmanFilter_t *kf);
 
 #endif //__KALMAN_FILTER_H
