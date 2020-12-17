@@ -1,9 +1,9 @@
 /**
   ******************************************************************************
-  * @file    kalman_filter.h
+  * @file    kalman filter.h
   * @author  Hongxi Wong
-  * @version V1.0.7
-  * @date    2020/5/28
+  * @version V1.1.0
+  * @date    2020/12/17
   * @brief   
   ******************************************************************************
   * @attention 
@@ -26,15 +26,15 @@
 #ifndef ARM_MATH_ROUNDING
 #define ARM_MATH_ROUNDING
 #endif
-#ifndef ARM_MATH_DSP
-#define ARM_MATH_DSP
-#endif
 
 #include <math.h>
 #include <stdlib.h>
 #include "stm32f4xx.h"
-#ifdef ARM_MATH_MATRIX_CHECK
 #include "arm_math.h"
+
+/* USER CODE BEGIN Includes */
+#include "cmsis_os.h"
+/* USER CODE END Includes */
 
 #ifdef _CMSIS_OS_H
 #define user_malloc pvPortMalloc
@@ -52,36 +52,37 @@
 
 typedef struct
 {
-    float *Raw_Value;
-    float *Filtered_Value;
-    float *Measured_Vector;
-    float *Control_Vector;
+    float *RawValue;
+    float *FilteredValue;
+    float *MeasuredVector;
+    float *ControlVector;
 
-    uint8_t xhat_size;
-    uint8_t u_size;
-    uint8_t z_size;
+    uint8_t xhatSize;
+    uint8_t uSize;
+    uint8_t zSize;
 
-    uint8_t Use_Auto_Adjustment;
+    uint8_t UseAutoAdjustment;
+    uint8_t MeasurementValidNum;
 
-    uint8_t *Measurement_Reference; //how measurement relates to the state vector
-    float *Measurement_Degree;      //how does sensors measure states
-    float *Mat_R_Diagonal_Elements; //variance for each measurement
-    float *State_Min_Variance;      //suppress filter excessive convergence
+    uint8_t *MeasurementMap;      // 量测与状态的关系 how measurement relates to the state
+    float *MeasurementDegree;     // 测量值对应H矩阵元素值 elements of each measurement in H
+    float *MatR_DiagonalElements; // 量测方差 variance for each measurement
+    float *StateMinVariance;      // 最小方差 避免方差过度收敛 suppress filter excessive convergence
     uint8_t *temp;
 
-    mat xhat;      //x(k|k)
-    mat xhatminus; //x(k|k-1)
-    mat u;         //control vector u
-    mat z;         //measurement vector z
-    mat z_buf;     //measurement vector z for update
-    mat P;         //covariance matrix P(k|k)
-    mat Pminus;    //covariance matrix P(k|k-1)
-    mat A, AT;     //state transition matrix A AT
-    mat B;         //control matrix B
+    mat xhat;      // x(k|k)
+    mat xhatminus; // x(k|k-1)
+    mat u;         // control vector u
+    mat z;         // measurement vector z
+    mat z_buf;     // measurement vector z for update
+    mat P;         // covariance matrix P(k|k)
+    mat Pminus;    // covariance matrix P(k|k-1)
+    mat A, AT;     // state transition matrix A AT
+    mat B;         // control matrix B
     mat H, HT;     // measurement matrix H
-    mat Q;         //process noise covariance matrix Q
-    mat R;         //measurement noise covariance matrix R
-    mat K;         //kalman gain  K
+    mat Q;         // process noise covariance matrix Q
+    mat R;         // measurement noise covariance matrix R
+    mat K;         // kalman gain  K
     mat S, temp_matrix, temp_matrix1, temp_vector, temp_vector1;
 
     float *xhat_data, *xhatminus_data;
@@ -96,11 +97,9 @@ typedef struct
     float *R_data;
     float *K_data;
     float *S_data, *temp_matrix_data, *temp_matrix_data1, *temp_vector_data, *temp_vector_data1;
-} kalman_filter_t;
+} KalmanFilter_t;
 
-void Kalman_Filter_Init(kalman_filter_t *KF, uint8_t xhat_size, uint8_t u_size, uint8_t z_size);
-float *Kalman_Filter_Update(kalman_filter_t *KF);
-
-#endif //ARM_MATH_MATRIX_CHECK
+void Kalman_Filter_Init(KalmanFilter_t *KF, uint8_t xhatSize, uint8_t uSize, uint8_t zSize);
+float *Kalman_Filter_Update(KalmanFilter_t *KF);
 
 #endif //__KALMAN_FILTER_H

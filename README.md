@@ -1,8 +1,8 @@
 ******************************************************************************
   * @name    kalman_filter implementation
   * @author  Hongxi Wong <hongxiw0x7d1@foxmail.com>
-  * @version V1.0.7
-  * @date    2020/5/28
+  * @version V1.1.0
+  * @date    2020/12/17
   * @brief   C implementation of kalman filter
 ******************************************************************************
 该卡尔曼滤波器可以在传感器采样频率不同的情况下，动态调整矩阵H R和K的维数与数值。
@@ -26,6 +26,13 @@ Additionally, the excessive convergence of matrix P will make filter incapable o
 **Example：**
 
 ```c
+// x = 
+//   |   height   |
+//   |  velocity  |
+//   |acceleration|
+
+KalmanFilter_t Height_KF;
+
 void Height_KF_Init(void)
 {
     static float P_Init[9] =
@@ -47,31 +54,32 @@ void Height_KF_Init(void)
             0.5*dt*dt,                  dt,         1,
         };
     
-    //boundary limiting for matrix P
+    // 设置最小方差
     static float state_min_variance[3] = {0.03, 0.005, 0.1};
     
-    //use auto adjustment for matrix H R K
+    // 开启自动调整
     Height_KF.Use_Auto_Adjustment = 1;
     
-    //baro for height  GPS for height  IMU for acc
+    // 气压测得高度 GPS测得高度 加速度计测得z轴运动加速度
     static uint8_t measurement_reference[3] = {1, 1, 3};
     
     static float measurement_degree[3] = {1, 1, 1};
-    //according to measurement_reference and measurement_degree
-    //matrix H will be like this:
+    // 根据measurement_reference与measurement_degree生成H矩阵如下
+    //（在当前周期全部测量数据有效情况下）
     //| 1 0 0 |
     //| 1 0 0 |
     //| 0 0 1 |
     
     static float mat_R_diagonal_elements[3] = {30, 25, 35};
-    //according to mat_R_diagonal_elements
-    //matrix R will be like this:
+    //根据mat_R_diagonal_elements生成R矩阵如下
+    //（在当前周期全部测量数据有效情况下）
     //| 30 0 0 |
     //| 0 25 0 |
     //| 0 0 35 |
     
     Kalman_Filter_Init(&Height_KF, 3, 0, 3);
     
+    // 设置矩阵值
     memcpy(Height_KF.P_data, P_Init, sizeof(P_Init));
     memcpy(Height_KF.A_data, A_Init, sizeof(A_Init));
     memcpy(Height_KF.Q_data, Q_Init, sizeof(Q_Init));
@@ -84,10 +92,12 @@ void Height_KF_Init(void)
 }
 void INS_Task(void const *pvParameters)
 {
-    //infinite loop
+    // 循环更新
     Kalman_Filter_Update(&Height_KF);
     vTaskDelay(ts);
 }
+
+// 测量数据更新应按照以下形式 即向MeasuredVector赋值
 void Barometer_Read_Over(void)
 {
     //......
