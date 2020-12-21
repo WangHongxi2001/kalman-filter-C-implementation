@@ -2,8 +2,8 @@
   ******************************************************************************
   * @file    kalman filter.h
   * @author  Hongxi Wong
-  * @version V1.1.2
-  * @date    2020/12/17
+  * @version V1.1.3
+  * @date    2020/12/21
   * @brief   
   ******************************************************************************
   * @attention 
@@ -84,6 +84,8 @@ typedef struct kf_t
     mat R;         // measurement noise covariance matrix R
     mat K;         // kalman gain  K
     mat S, temp_matrix, temp_matrix1, temp_vector, temp_vector1;
+
+    int8_t MatStatus;
 
     void (*User_Func0_f)(struct kf_t *kf);
     void (*User_Func1_f)(struct kf_t *kf);

@@ -2,8 +2,8 @@
   ******************************************************************************
   * @file    kalman filter.c
   * @author  Hongxi Wong
-  * @version V1.1.2
-  * @date    2020/12/17
+  * @version V1.1.3
+  * @date    2020/12/21
   * @brief   C implementation of kalman filter
   ******************************************************************************
   * @attention 
@@ -269,15 +269,15 @@ float *Kalman_Filter_Update(KalmanFilter_t *kf)
     // 1. xhat'(k)= A，xhat(k-1) + B，u
     if (kf->uSize > 0)
     {
-        Matrix_Multiply(&kf->A, &kf->xhat, &kf->temp_vector);
+        kf->MatStatus = Matrix_Multiply(&kf->A, &kf->xhat, &kf->temp_vector);
         kf->temp_vector1.numRows = kf->xhatSize;
         kf->temp_vector1.numCols = 1;
-        Matrix_Multiply(&kf->B, &kf->u, &kf->temp_vector1);
-        Matrix_Add(&kf->temp_vector, &kf->temp_vector1, &kf->xhatminus);
+        kf->MatStatus = Matrix_Multiply(&kf->B, &kf->u, &kf->temp_vector1);
+        kf->MatStatus = Matrix_Add(&kf->temp_vector, &kf->temp_vector1, &kf->xhatminus);
     }
     else
     {
-        Matrix_Multiply(&kf->A, &kf->xhat, &kf->xhatminus);
+        kf->MatStatus = Matrix_Multiply(&kf->A, &kf->xhat, &kf->xhatminus);
     }
 
     if (kf->User_Func1_f != NULL)
@@ -285,12 +285,12 @@ float *Kalman_Filter_Update(KalmanFilter_t *kf)
 
     // 圓霞厚仟
     // 2. P'(k) = A，P(k-1)，AT + Q
-    Matrix_Transpose(&kf->A, &kf->AT);
-    Matrix_Multiply(&kf->A, &kf->P, &kf->Pminus);
+    kf->MatStatus = Matrix_Transpose(&kf->A, &kf->AT);
+    kf->MatStatus = Matrix_Multiply(&kf->A, &kf->P, &kf->Pminus);
     kf->temp_matrix.numRows = kf->Pminus.numRows;
     kf->temp_matrix.numCols = kf->AT.numCols;
-    Matrix_Multiply(&kf->Pminus, &kf->AT, &kf->temp_matrix); //temp_matrix = A P(k-1) AT
-    Matrix_Add(&kf->temp_matrix, &kf->Q, &kf->Pminus);
+    kf->MatStatus = Matrix_Multiply(&kf->Pminus, &kf->AT, &kf->temp_matrix); //temp_matrix = A P(k-1) AT
+    kf->MatStatus = Matrix_Add(&kf->temp_matrix, &kf->Q, &kf->Pminus);
 
     if (kf->User_Func2_f != NULL)
         kf->User_Func2_f(kf);
@@ -299,21 +299,21 @@ float *Kalman_Filter_Update(KalmanFilter_t *kf)
     {
         // 楚霞厚仟
         // 3. K(k) = P'(k)，HT / (H，P'(k)，HT + R)
-        Matrix_Transpose(&kf->H, &kf->HT); //z|x => x|z
+        kf->MatStatus = Matrix_Transpose(&kf->H, &kf->HT); //z|x => x|z
         kf->temp_matrix.numRows = kf->H.numRows;
         kf->temp_matrix.numCols = kf->Pminus.numCols;
-        Matrix_Multiply(&kf->H, &kf->Pminus, &kf->temp_matrix); //temp_matrix = H，P'(k)
+        kf->MatStatus = Matrix_Multiply(&kf->H, &kf->Pminus, &kf->temp_matrix); //temp_matrix = H，P'(k)
         kf->temp_matrix1.numRows = kf->temp_matrix.numRows;
         kf->temp_matrix1.numCols = kf->HT.numCols;
-        Matrix_Multiply(&kf->temp_matrix, &kf->HT, &kf->temp_matrix1); //temp_matrix1 = H，P'(k)，HT
+        kf->MatStatus = Matrix_Multiply(&kf->temp_matrix, &kf->HT, &kf->temp_matrix1); //temp_matrix1 = H，P'(k)，HT
         kf->S.numRows = kf->R.numRows;
         kf->S.numCols = kf->R.numCols;
-        Matrix_Add(&kf->temp_matrix1, &kf->R, &kf->S); //S = H P'(k) HT + R
-        Matrix_Inverse(&kf->S, &kf->temp_matrix1);     //temp_matrix1 = inv(H，P'(k)，HT + R)
+        kf->MatStatus = Matrix_Add(&kf->temp_matrix1, &kf->R, &kf->S); //S = H P'(k) HT + R
+        kf->MatStatus = Matrix_Inverse(&kf->S, &kf->temp_matrix1);     //temp_matrix1 = inv(H，P'(k)，HT + R)
         kf->temp_matrix.numRows = kf->Pminus.numRows;
         kf->temp_matrix.numCols = kf->HT.numCols;
-        Matrix_Multiply(&kf->Pminus, &kf->HT, &kf->temp_matrix); //temp_matrix = P'(k)，HT
-        Matrix_Multiply(&kf->temp_matrix, &kf->temp_matrix1, &kf->K);
+        kf->MatStatus = Matrix_Multiply(&kf->Pminus, &kf->HT, &kf->temp_matrix); //temp_matrix = P'(k)，HT
+        kf->MatStatus = Matrix_Multiply(&kf->temp_matrix, &kf->temp_matrix1, &kf->K);
 
         if (kf->User_Func3_f != NULL)
             kf->User_Func3_f(kf);
@@ -321,14 +321,14 @@ float *Kalman_Filter_Update(KalmanFilter_t *kf)
         // 4. xhat(k) = xhat'(k) + K(k)，(z(k) - H，xhat'(k))
         kf->temp_vector.numRows = kf->H.numRows;
         kf->temp_vector.numCols = 1;
-        Matrix_Multiply(&kf->H, &kf->xhatminus, &kf->temp_vector); //temp_vector = H xhat'(k)
+        kf->MatStatus = Matrix_Multiply(&kf->H, &kf->xhatminus, &kf->temp_vector); //temp_vector = H xhat'(k)
         kf->temp_vector1.numRows = kf->z.numRows;
         kf->temp_vector1.numCols = 1;
-        Matrix_Subtract(&kf->z, &kf->temp_vector, &kf->temp_vector1); //temp_vector1 = z(k) - H，xhat'(k)
+        kf->MatStatus = Matrix_Subtract(&kf->z, &kf->temp_vector, &kf->temp_vector1); //temp_vector1 = z(k) - H，xhat'(k)
         kf->temp_vector.numRows = kf->K.numRows;
         kf->temp_vector.numCols = 1;
-        Matrix_Multiply(&kf->K, &kf->temp_vector1, &kf->temp_vector); //temp_vector = K(k)，(z(k) - H，xhat'(k))
-        Matrix_Add(&kf->xhatminus, &kf->temp_vector, &kf->xhat);
+        kf->MatStatus = Matrix_Multiply(&kf->K, &kf->temp_vector1, &kf->temp_vector); //temp_vector = K(k)，(z(k) - H，xhat'(k))
+        kf->MatStatus = Matrix_Add(&kf->xhatminus, &kf->temp_vector, &kf->xhat);
 
         if (kf->User_Func4_f != NULL)
             kf->User_Func4_f(kf);
@@ -338,9 +338,9 @@ float *Kalman_Filter_Update(KalmanFilter_t *kf)
         kf->temp_matrix.numCols = kf->H.numCols;
         kf->temp_matrix1.numRows = kf->temp_matrix.numRows;
         kf->temp_matrix1.numCols = kf->Pminus.numCols;
-        Matrix_Multiply(&kf->K, &kf->H, &kf->temp_matrix);                 //temp_matrix = K(k)，H
-        Matrix_Multiply(&kf->temp_matrix, &kf->Pminus, &kf->temp_matrix1); //temp_matrix1 = K(k)，H，P'(k)
-        Matrix_Subtract(&kf->Pminus, &kf->temp_matrix1, &kf->P);
+        kf->MatStatus = Matrix_Multiply(&kf->K, &kf->H, &kf->temp_matrix);                 //temp_matrix = K(k)，H
+        kf->MatStatus = Matrix_Multiply(&kf->temp_matrix, &kf->Pminus, &kf->temp_matrix1); //temp_matrix1 = K(k)，H，P'(k)
+        kf->MatStatus = Matrix_Subtract(&kf->Pminus, &kf->temp_matrix1, &kf->P);
     }
     else
     {
@@ -416,4 +416,5 @@ static void H_K_R_Adjustment(KalmanFilter_t *kf)
     kf->R.numCols = kf->MeasurementValidNum;
     kf->K.numRows = kf->xhatSize;
     kf->K.numCols = kf->MeasurementValidNum;
+    kf->z.numRows = kf->MeasurementValidNum;
 }
