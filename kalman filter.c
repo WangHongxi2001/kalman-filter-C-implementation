@@ -128,6 +128,8 @@
 
 #include "kalman filter.h"
 
+uint16_t sizeof_float, sizeof_double;
+
 static void H_K_R_Adjustment(KalmanFilter_t *kf);
 
 void Kalman_Filter_Init(KalmanFilter_t *kf, uint8_t xhatSize, uint8_t uSize, uint8_t zSize)
