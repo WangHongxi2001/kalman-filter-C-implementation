@@ -1,9 +1,9 @@
 /**
   ******************************************************************************
   * @file    kalman filter.h
-  * @author  Hongxi Wong
-  * @version V1.1.3
-  * @date    2020/12/21
+  * @author  Hongxi Wang
+  * @version V1.1.4
+  * @date    2020/1/8
   * @brief   
   ******************************************************************************
   * @attention 
@@ -33,7 +33,7 @@
 #include "arm_math.h"
 
 /* USER CODE BEGIN Includes */
-#include "cmsis_os.h"
+
 /* USER CODE END Includes */
 
 #ifdef _CMSIS_OS_H
@@ -69,6 +69,7 @@ typedef struct kf_t
     float *MatR_DiagonalElements; // 量测方差 variance for each measurement
     float *StateMinVariance;      // 最小方差 避免方差过度收敛 suppress filter excessive convergence
     uint8_t *temp;
+    uint8_t SkipEq1, SkipEq2, SkipEq3, SkipEq4, SkipEq5;
 
     mat xhat;      // x(k|k)
     mat xhatminus; // x(k|k-1)
