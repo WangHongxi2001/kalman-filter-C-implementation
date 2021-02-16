@@ -156,8 +156,6 @@ void Kalman_Filter_Init(KalmanFilter_t *kf, uint8_t xhatSize, uint8_t uSize, uin
     memset(kf->temp, 0, sizeof(uint8_t) * zSize);
 
     // filter data
-    kf->RawValue = (float *)user_malloc(sizeof_float * xhatSize);
-    memset(kf->RawValue, 0, sizeof_float * xhatSize);
     kf->FilteredValue = (float *)user_malloc(sizeof_float * xhatSize);
     memset(kf->FilteredValue, 0, sizeof_float * xhatSize);
     kf->MeasuredVector = (float *)user_malloc(sizeof_float * zSize);

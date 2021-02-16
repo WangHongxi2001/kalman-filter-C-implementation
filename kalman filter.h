@@ -52,7 +52,6 @@
 
 typedef struct kf_t
 {
-    float *RawValue;
     float *FilteredValue;
     float *MeasuredVector;
     float *ControlVector;
