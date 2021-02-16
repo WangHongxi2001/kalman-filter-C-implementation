@@ -183,7 +183,7 @@ void Kalman_Filter_Init(KalmanFilter_t *kf, uint8_t xhatSize, uint8_t uSize, uin
         Matrix_Init(&kf->u, kf->uSize, 1, (float *)kf->u_data);
     }
 
-    // measurement vector z and z_buf
+    // measurement vector z
     kf->z_data = (float *)user_malloc(sizeof_float * zSize);
     memset(kf->z_data, 0, sizeof_float * zSize);
     Matrix_Init(&kf->z, kf->zSize, 1, (float *)kf->z_data);

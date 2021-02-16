@@ -75,7 +75,6 @@ typedef struct kf_t
     mat xhatminus; // x(k|k-1)
     mat u;         // control vector u
     mat z;         // measurement vector z
-    mat z_buf;     // measurement vector z for update
     mat P;         // covariance matrix P(k|k)
     mat Pminus;    // covariance matrix P(k|k-1)
     mat F, FT;     // state transition matrix F FT
@@ -99,7 +98,6 @@ typedef struct kf_t
     float *xhat_data, *xhatminus_data;
     float *u_data;
     float *z_data;
-    float *z_buf_data;
     float *P_data, *Pminus_data;
     float *F_data, *FT_data;
     float *B_data;
