@@ -2,8 +2,8 @@
   ******************************************************************************
   * @file    kalman filter.c
   * @author  Hongxi Wang
-  * @version V1.1.4
-  * @date    2020/1/8
+  * @version V1.1.5
+  * @date    2020/2/16
   * @brief   C implementation of kalman filter
   ******************************************************************************
   * @attention 
@@ -14,7 +14,7 @@
   * 
   * 因此矩阵H和R的初始化会与矩阵P A和Q有所不同。另外的，在初始化量测向量z时需要额外写
   * 入传感器量测所对应的状态与这个量测的方式，详情请见例程
-  * Therefore, the initialization of matrix P, A, and Q is sometimes different 
+  * Therefore, the initialization of matrix P, F, and Q is sometimes different 
   * from that of matrices H R. when initialization. Additionally, the corresponding 
   * state and the method of the measurement should be provided when initializing 
   * measurement vector z. For more details, please see the example. 
@@ -54,7 +54,7 @@
   *         0, 30, 0, 
   *         0, 0, 10, 
   *     };
-  *     static float A_Init[9] =
+  *     static float F_Init[9] =
   *     {
   *         1, dt, 0.5*dt*dt, 
   *         0, 1, dt, 
@@ -92,7 +92,7 @@
   * 
   *     // 设置矩阵值
   *     memcpy(Height_KF.P_data, P_Init, sizeof(P_Init));
-  *     memcpy(Height_KF.A_data, A_Init, sizeof(A_Init));
+  *     memcpy(Height_KF.F_data, F_Init, sizeof(F_Init));
   *     memcpy(Height_KF.Q_data, Q_Init, sizeof(Q_Init));
   *     memcpy(Height_KF.MeasurementMap, measurement_reference, sizeof(measurement_reference));
   *     memcpy(Height_KF.MeasurementDegree, measurement_degree, sizeof(measurement_degree));
@@ -198,13 +198,13 @@ void Kalman_Filter_Init(KalmanFilter_t *kf, uint8_t xhatSize, uint8_t uSize, uin
     memset(kf->Pminus_data, 0, sizeof_float * xhatSize * xhatSize);
     Matrix_Init(&kf->Pminus, kf->xhatSize, kf->xhatSize, (float *)kf->Pminus_data);
 
-    // state transition matrix A AT
-    kf->A_data = (float *)user_malloc(sizeof_float * xhatSize * xhatSize);
-    kf->AT_data = (float *)user_malloc(sizeof_float * xhatSize * xhatSize);
-    memset(kf->A_data, 0, sizeof_float * xhatSize * xhatSize);
-    memset(kf->AT_data, 0, sizeof_float * xhatSize * xhatSize);
-    Matrix_Init(&kf->A, kf->xhatSize, kf->xhatSize, (float *)kf->A_data);
-    Matrix_Init(&kf->AT, kf->xhatSize, kf->xhatSize, (float *)kf->AT_data);
+    // state transition matrix F FT
+    kf->F_data = (float *)user_malloc(sizeof_float * xhatSize * xhatSize);
+    kf->FT_data = (float *)user_malloc(sizeof_float * xhatSize * xhatSize);
+    memset(kf->F_data, 0, sizeof_float * xhatSize * xhatSize);
+    memset(kf->FT_data, 0, sizeof_float * xhatSize * xhatSize);
+    Matrix_Init(&kf->F, kf->xhatSize, kf->xhatSize, (float *)kf->F_data);
+    Matrix_Init(&kf->FT, kf->xhatSize, kf->xhatSize, (float *)kf->FT_data);
 
     if (uSize != 0)
     {
@@ -277,7 +277,7 @@ float *Kalman_Filter_Update(KalmanFilter_t *kf)
     {
         if (kf->uSize > 0)
         {
-            kf->MatStatus = Matrix_Multiply(&kf->A, &kf->xhat, &kf->temp_vector);
+            kf->MatStatus = Matrix_Multiply(&kf->F, &kf->xhat, &kf->temp_vector);
             kf->temp_vector1.numRows = kf->xhatSize;
             kf->temp_vector1.numCols = 1;
             kf->MatStatus = Matrix_Multiply(&kf->B, &kf->u, &kf->temp_vector1);
@@ -285,7 +285,7 @@ float *Kalman_Filter_Update(KalmanFilter_t *kf)
         }
         else
         {
-            kf->MatStatus = Matrix_Multiply(&kf->A, &kf->xhat, &kf->xhatminus);
+            kf->MatStatus = Matrix_Multiply(&kf->F, &kf->xhat, &kf->xhatminus);
         }
     }
 
@@ -296,11 +296,11 @@ float *Kalman_Filter_Update(KalmanFilter_t *kf)
     // 2. P'(k) = A·P(k-1)·AT + Q
     if (!kf->SkipEq2)
     {
-        kf->MatStatus = Matrix_Transpose(&kf->A, &kf->AT);
-        kf->MatStatus = Matrix_Multiply(&kf->A, &kf->P, &kf->Pminus);
+        kf->MatStatus = Matrix_Transpose(&kf->F, &kf->FT);
+        kf->MatStatus = Matrix_Multiply(&kf->F, &kf->P, &kf->Pminus);
         kf->temp_matrix.numRows = kf->Pminus.numRows;
-        kf->temp_matrix.numCols = kf->AT.numCols;
-        kf->MatStatus = Matrix_Multiply(&kf->Pminus, &kf->AT, &kf->temp_matrix); //temp_matrix = A P(k-1) AT
+        kf->temp_matrix.numCols = kf->FT.numCols;
+        kf->MatStatus = Matrix_Multiply(&kf->Pminus, &kf->FT, &kf->temp_matrix); //temp_matrix = F P(k-1) FT
         kf->MatStatus = Matrix_Add(&kf->temp_matrix, &kf->Q, &kf->Pminus);
     }
 

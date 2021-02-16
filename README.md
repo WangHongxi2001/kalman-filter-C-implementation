@@ -1,8 +1,8 @@
 ******************************************************************************
   * @name    kalman_filter implementation
-  * @author  Hongxi Wong <hongxiw0x7d1@foxmail.com>
-  * @version V1.1.0
-  * @date    2020/12/17
+  * @author  Hongxi Wang <hongxiw0x7d1@foxmail.com>
+  * @version V1.1.5
+  * @date    2020/2/16
   * @brief   C implementation of kalman filter
 ******************************************************************************
 该卡尔曼滤波器可以在传感器采样频率不同的情况下，动态调整矩阵H R和K的维数与数值。
@@ -35,7 +35,7 @@ void Height_KF_Init(void)
             0, 30,  0,
             0,  0, 10,
         };
-    static float A_Init[9] =
+    static float F_Init[9] =
         {
             1, dt,  0.5*dt*dt,
             0,  1,         dt,
@@ -75,7 +75,7 @@ void Height_KF_Init(void)
     
     // 设置矩阵值
     memcpy(Height_KF.P_data, P_Init, sizeof(P_Init));
-    memcpy(Height_KF.A_data, A_Init, sizeof(A_Init));
+    memcpy(Height_KF.F_data, F_Init, sizeof(F_Init));
     memcpy(Height_KF.Q_data, Q_Init, sizeof(Q_Init));
     memcpy(Height_KF.Measurement_Reference, 
            measurement_reference, sizeof(measurement_reference));

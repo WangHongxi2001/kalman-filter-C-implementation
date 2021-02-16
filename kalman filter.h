@@ -2,8 +2,8 @@
   ******************************************************************************
   * @file    kalman filter.h
   * @author  Hongxi Wang
-  * @version V1.1.4
-  * @date    2020/1/8
+  * @version V1.1.5
+  * @date    2020/2/16
   * @brief   
   ******************************************************************************
   * @attention 
@@ -78,7 +78,7 @@ typedef struct kf_t
     mat z_buf;     // measurement vector z for update
     mat P;         // covariance matrix P(k|k)
     mat Pminus;    // covariance matrix P(k|k-1)
-    mat A, AT;     // state transition matrix A AT
+    mat F, FT;     // state transition matrix F FT
     mat B;         // control matrix B
     mat H, HT;     // measurement matrix H
     mat Q;         // process noise covariance matrix Q
@@ -101,7 +101,7 @@ typedef struct kf_t
     float *z_data;
     float *z_buf_data;
     float *P_data, *Pminus_data;
-    float *A_data, *AT_data;
+    float *F_data, *FT_data;
     float *B_data;
     float *H_data, *HT_data;
     float *Q_data;
@@ -109,7 +109,7 @@ typedef struct kf_t
     float *K_data;
     float *S_data, *temp_matrix_data, *temp_matrix_data1, *temp_vector_data, *temp_vector_data1;
 } KalmanFilter_t;
-
+extern uint16_t sizeof_float, sizeof_double;
 void Kalman_Filter_Init(KalmanFilter_t *kf, uint8_t xhatSize, uint8_t uSize, uint8_t zSize);
 float *Kalman_Filter_Update(KalmanFilter_t *kf);
 
